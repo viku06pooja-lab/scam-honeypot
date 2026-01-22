@@ -20,7 +20,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
+@app.get("/")
+def root():
+    return {"status": "ok", "message": "Scam Honeypot API is running"}
 API_KEY = "test123"  # Change this later
 
 class MessageIn(BaseModel):
