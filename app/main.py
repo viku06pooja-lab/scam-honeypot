@@ -28,7 +28,29 @@ API_KEY = "test123"  # Change this later
 class MessageIn(BaseModel):
     conversation_id: str
     message: str
+from fastapi import Body
 
+@app.post("/guvi/message")
+def guvi_entry(
+    payload: dict = Body(...),
+    x_api_key: str = Header(None)
+):
+    # Extract fields from GUVI format
+    try:
+        inner = payload["audioBase64"]
+        # inner is a JSON string → convert to dict
+        import json
+        inner_data = json.loads(inner)
+
+        conversation_id = inner_data["conversation_id"]
+        message = inner_data["message"]
+
+    except Exception:
+        raise HTTPException(status_code=422, detail="Invalid GUVI payload")
+
+    # Reuse your existing logic
+    data = MessageIn(conversation_id=conversation_id, message=message)
+    return receive_message(data, x_api_key)
 @app.post("/message")
 def receive_message(data: MessageIn, x_api_key: str = Header(None)):
     if x_api_key != API_KEY:
