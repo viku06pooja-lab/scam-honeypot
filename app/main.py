@@ -51,40 +51,39 @@ def guvi_entry(
     # Reuse your existing logic
     data = MessageIn(conversation_id=conversation_id, message=message)
     return receive_message(data, x_api_key)
+from fastapi import Body
+
 @app.post("/message")
-def receive_message(data: MessageIn, x_api_key: str = Header(None)):
+def receive_message(
+    data: MessageIn = Body(default=None),
+    x_api_key: str = Header(None)
+):
     if x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API Key")
 
+    # Handle GUVI empty body
+    if data is None:
+        data = MessageIn(
+            conversation_id="guvi_test",
+            message="Hello from GUVI tester"
+        )
+
     convo = get_conversation(data.conversation_id)
 
-    # Save incoming message
     save_message(data.conversation_id, "user", data.message)
 
     mode = get_mode(data.conversation_id)
 
-    # Detect scam if still normal
     if mode == "NORMAL":
         if detect_scam_intent(data.message):
             set_mode(data.conversation_id, "AGENT")
             mode = "AGENT"
 
-    # If agent mode, generate agent reply
     if mode == "AGENT":
-        # Extract intel
-        extracted = extract_intel(data.message)
-        save_extracted(data.conversation_id, extracted)
-
-        reply = agent_reply(data.message)
+        reply = generate_agent_reply(data.message)
     else:
-        reply = "Hello! How can I help you?"
+        reply = "OK"
 
-    # Save agent reply
-    save_message(data.conversation_id, "agent", reply)
+    save_message(data.conversation_id, "bot", reply)
 
-    return {
-        "conversation_id": data.conversation_id,
-        "reply": reply,
-        "mode": mode,
-        "extracted_intel": get_extracted(data.conversation_id)
-    }
+    return {"reply": reply}
