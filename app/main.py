@@ -1,51 +1,38 @@
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Body
 from pydantic import BaseModel
+from typing import Optional
 
 app = FastAPI()
 
-# ======================
-# Root Health Check
-# ======================
-
-@app.get("/")
-def root():
-    return {"status": "ok", "message": "Scam Honeypot API is running"}
-
-
-# ======================
-# API Key Setup
-# ======================
-
-API_KEY = "test123"   # You will submit this in GUVI form
-
-
-# ======================
-# Request Body Model
-# ======================
+API_KEY = "test123"
 
 class MessageIn(BaseModel):
     conversation_id: str
     message: str
 
-
-# ======================
-# Honeypot Message Endpoint
-# ======================
+@app.get("/")
+def root():
+    return {"status": "ok", "message": "Scam Honeypot API is running"}
 
 @app.post("/message")
-def receive_message(data: MessageIn, x_api_key: str = Header(None)):
-
-    # --- API Key Validation ---
+def receive_message(
+    x_api_key: str = Header(None),
+    data: Optional[MessageIn] = Body(None)
+):
+    # API Key check
     if x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API Key")
 
-    # --- Simple Scam Detection Demo Logic ---
-    user_message = data.message.lower()
+    # GUVI sometimes sends empty body → handle fallback
+    if data is None:
+        raise HTTPException(status_code=422, detail="Missing request body")
 
-    if "lottery" in user_message or "bank account" in user_message or "upi" in user_message:
-        reply = "Oh really? Can you tell me more details?"
+    # Simple scam-detection demo reply
+    text = data.message.lower()
+
+    if "lottery" in text or "bank" in text or "account" in text:
+        reply = "Oh really? Can you share more details?"
     else:
-        reply = "I see. Please continue."
+        reply = "Hello. How can I help you?"
 
-    # --- Mandatory Response Format ---
     return {"reply": reply}
