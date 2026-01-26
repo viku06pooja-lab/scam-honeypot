@@ -27,7 +27,7 @@ class WrappedInput(BaseModel):
     audioBase64: str
 
 # Message endpoint
-@app.post("/message")
+app.post("/message")
 def receive_message(data: WrappedInput, x_api_key: str = Header(None)):
     if x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API Key")
@@ -36,9 +36,12 @@ def receive_message(data: WrappedInput, x_api_key: str = Header(None)):
 
     conversation_id = payload["conversation_id"]
     message = payload["message"]
+scam_keywords = ["lottery", "investment", "bank account", "urgent", "prize"]
+    is_scam = any(word in message.lower() for word in scam_keywords)
+
+    reply = "Scam intent detected." if is_scam else "No scam intent detected."
 
     return {
-        "reply": "Scam intent detected. Conversation logged.",
-        "conversation_id": conversation_id,
-        "received_message": message
+        "reply": reply,
+        "conversation_id": conversation_id
     }
