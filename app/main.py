@@ -39,10 +39,12 @@ def classify_message(conversation_id: str, message: str):
     reply = "SCAMMER" if is_scam else "AGENT"
 
    return {
-    "reply": {
-        "role": "assistant",
-        "content": reply
-    }
+       "reply": {
+           "role": "assistant",
+           "content": reply
+       }
+   }
+    
 }
 # --------------------
 # Main Endpoint
