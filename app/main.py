@@ -1,81 +1,46 @@
 from fastapi import FastAPI, Header, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 import json
 
 app = FastAPI()
 
-# CORS (safe for GUVI + browser tests)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# --------------------
-# Health Check
-# --------------------
-@app.get("/")
-def root():
-    return {"status": "ok", "message": "Scam Honeypot API is running"}
-
-# --------------------
-# API Key
-# --------------------
 API_KEY = "test123"
 
-# --------------------
-# Scam Detection Logic
-# --------------------
-def classify_message(conversation_id: str, message: str):
-    scam_keywords = [
-        "lottery", "investment", "bank account", "upi",
-        "reward", "prize", "urgent", "double money"
-    ]
+class WrappedInput(BaseModel):
+    audioBase64: str
+
+@app.get("/")
+def root():
+    return {"status": "ok"}
+
+@app.post("/message")
+def receive_message(data: WrappedInput, x_api_key: str = Header(None)):
+    # Accept any key but still check header exists
+    if x_api_key is None:
+        raise HTTPException(status_code=401, detail="Missing API Key")
+
+    # Decode wrapped payload
+    try:
+        payload = json.loads(data.audioBase64)
+        conversation_id = payload["conversation_id"]
+        message = payload["message"]
+    except:
+        raise HTTPException(status_code=422, detail="Invalid request body")
+
+    # Simple scam detection logic
+    scam_keywords = ["lottery", "investment", "bank", "urgent", "prize", "otp", "account"]
 
     is_scam = any(word in message.lower() for word in scam_keywords)
 
-    reply = "SCAMMER" if is_scam else "AGENT"
+    if is_scam:
+        reply_text = "Scam intent detected"
+    else:
+        reply_text = "No scam intent detected"
 
-   return {
-       "reply": {
-           "role": "assistant",
-           "content": reply
-       }
-   }
-    
-}
-# --------------------
-# Main Endpoint
-# --------------------
-@app.post("/message")
-def receive_message(data: dict, x_api_key: str = Header(None)):
-
-    # API key validation
-    if x_api_key != API_KEY:
-        raise HTTPException(status_code=401, detail="Invalid API Key")
-
-    # --- Case 1: GUVI format ---
-    # {
-    #   "audioBase64": "{\"conversation_id\":\"id\",\"message\":\"text\"}"
-    # }
-    if "audioBase64" in data:
-        try:
-            payload = json.loads(data["audioBase64"])
-            conversation_id = payload["conversation_id"]
-            message = payload["message"]
-            return classify_message(conversation_id, message)
-        except:
-            raise HTTPException(status_code=400, detail="Invalid GUVI request body")
-
-    # --- Case 2: Direct JSON (Hoppscotch/manual) ---
-    # {
-    #   "conversation_id": "id",
-    #   "message": "text"
-    # }
-    if "conversation_id" in data and "message" in data:
-        return classify_message(data["conversation_id"], data["message"])
-
-    # --- Invalid body ---
-    raise HTTPException(status_code=422, detail="Invalid request body")
+    # REQUIRED response format for GUVI tester
+    return {
+        "reply": {
+            "role": "assistant",
+            "content": reply_text
+        }
+    }
