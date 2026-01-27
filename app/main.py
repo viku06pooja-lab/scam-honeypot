@@ -1,6 +1,6 @@
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException,Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+
 import json
 
 app = FastAPI()
@@ -13,10 +13,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-class RequestModel(BaseModel):
-    language: str
-    audio_format: str
-    audio_base64: str
+
 # Health check
 @app.get("/")
 def root():
