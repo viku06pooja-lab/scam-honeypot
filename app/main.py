@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Header, HTTPException,Request
 from fastapi.middleware.cors import CORSMiddleware
-
+from pydantic import BaseModel
 import json
 
 app = FastAPI()
