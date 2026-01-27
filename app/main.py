@@ -6,20 +6,23 @@ app = FastAPI()
 
 API_KEY = "test123"
 
-class WrappedInput(BaseModel):
-    audioBase64: str
-
+# Health check
 @app.get("/")
 def root():
     return {"status": "ok"}
 
+# Input model expected by GUVI honeypot tester
+class WrappedInput(BaseModel):
+    audioBase64: str
+
+# Message endpoint
 @app.post("/message")
 def receive_message(data: WrappedInput, x_api_key: str = Header(None)):
-    # Accept any key but still check header exists
-    if x_api_key is None:
-        raise HTTPException(status_code=401, detail="Missing API Key")
+    # API Key check
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API Key")
 
-    # Decode inner JSON
+    # Decode wrapped JSON string
     payload = json.loads(data.audioBase64)
 
     conversation_id = payload["conversation_id"]
@@ -27,18 +30,12 @@ def receive_message(data: WrappedInput, x_api_key: str = Header(None)):
 
     # Simple scam detection
     scam_keywords = ["lottery", "investment", "bank account", "urgent", "prize"]
+
     is_scam = any(word in message.lower() for word in scam_keywords)
 
-    reply_text = (
-        "Scam intent detected."
-        if is_scam
-        else "No scam intent detected."
-    )
+    reply = "Scam intent detected." if is_scam else "No scam intent detected."
 
-    # REQUIRED RESPONSE SHAPE
     return {
-        "reply": {
-            "role": "assistant",
-            "content": reply_text
-        }
+        "reply": reply,
+        "conversation_id": conversation_id
     }
