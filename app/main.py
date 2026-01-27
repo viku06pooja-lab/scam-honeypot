@@ -31,38 +31,45 @@ class WrappedInput(BaseModel):
 
 # ---- Honeypot Endpoint ----
 @app.post("/message")
-def receive_message(data: WrappedInput, x_api_key: str = Header(None)):
+async def receive_message(request: Request, x_api_key: str = Header(None)):
 
-    # API Key validation
+    raw = await request.body()
+
     if x_api_key != API_KEY:
-        raise HTTPException(status_code=401, detail="Invalid API Key")
+        return {"error": "Invalid API Key"}
 
-    # Decode wrapped payload
     try:
-        payload = json.loads(data.audioBase64)
-        conversation_id = payload["conversation_id"]
-        message = payload["message"]
+        body = json.loads(raw)
     except:
-        raise HTTPException(status_code=422, detail="Invalid Request Body")
+        return {"error": "Invalid JSON"}
 
-    # ---- Scam detection logic ----
-    scam_keywords = [
-        "lottery", "investment", "bank", "account",
-        "urgent", "otp", "prize", "suspended"
-    ]
+    # --- Case 1: Agentic Honeypot direct format ---
+    if "conversation_id" in body and "message" in body:
+        conversation_id = body["conversation_id"]
+        message = body["message"]
 
+    # --- Case 2: Voice Detection wrapped format ---
+    elif "audio_base64" in body:
+        try:
+            inner = json.loads(body["audio_base64"])
+            conversation_id = inner.get("conversation_id","no_id")
+            message = inner.get("message","")
+        except:
+            return {"error": "Bad audio_base64 format"}
+
+    else:
+        return {"error": "Unknown request schema", "received": body}
+
+    # --- Scam detection ---
+    scam_keywords = ["lottery","investment","bank account","urgent","prize"]
     is_scam = any(word in message.lower() for word in scam_keywords)
 
-    if is_scam:
-        reply_text = "SCAM DETECTED"
-    else:
-        reply_text = "NORMAL MESSAGE"
+    result_text = "SCAM DETECTED" if is_scam else "NORMAL MESSAGE"
 
-    # ---- Response format required by GUVI ----
     return {
         "reply": {
             "role": "assistant",
-            "content": reply_text
+            "content": result_text
         },
         "conversation_id": conversation_id
     }
