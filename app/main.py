@@ -19,25 +19,23 @@ def receive_message(data: WrappedInput, x_api_key: str = Header(None)):
     if x_api_key is None:
         raise HTTPException(status_code=401, detail="Missing API Key")
 
-    # Decode wrapped payload
-    try:
-        payload = json.loads(data.audioBase64)
-        conversation_id = payload["conversation_id"]
-        message = payload["message"]
-    except:
-        raise HTTPException(status_code=422, detail="Invalid request body")
+    # Decode inner JSON
+    payload = json.loads(data.audioBase64)
 
-    # Simple scam detection logic
-    scam_keywords = ["lottery", "investment", "bank", "urgent", "prize", "otp", "account"]
+    conversation_id = payload["conversation_id"]
+    message = payload["message"]
 
+    # Simple scam detection
+    scam_keywords = ["lottery", "investment", "bank account", "urgent", "prize"]
     is_scam = any(word in message.lower() for word in scam_keywords)
 
-    if is_scam:
-        reply_text = "Scam intent detected"
-    else:
-        reply_text = "No scam intent detected"
+    reply_text = (
+        "Scam intent detected."
+        if is_scam
+        else "No scam intent detected."
+    )
 
-    # REQUIRED response format for GUVI tester
+    # REQUIRED RESPONSE SHAPE
     return {
         "reply": {
             "role": "assistant",
